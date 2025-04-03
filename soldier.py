@@ -185,6 +185,12 @@ class Soldier(pygame.sprite.Sprite):
         '''
         self.vel_y = 0
         self.in_air = False
+        
+        # --- FALL DAMAGE ---
+        if impact_velocity > ENVIRONMENT.FALL_DAMAGE_THRESHOLD:
+            excess_velocity = impact_velocity - ENVIRONMENT.FALL_DAMAGE_THRESHOLD
+            damage = int(excess_velocity * ENVIRONMENT.FALL_DAMAGE_MULTIPLIER)
+            self.health -= damage
 
     def _create_bullet(self):
         '''

@@ -342,6 +342,10 @@ class GameEngine():
         sprite.vel_y += ENVIRONMENT.GRAVITY
         sprite.vel_y = min(20, sprite.vel_y)
         sprite.dy = int(sprite.vel_y)
+        
+        # If falling and not already marked as in air
+        if sprite.dy > 0 and not sprite.in_air:
+            sprite.in_air = True
 
         # Calculate lateral movement
         sprite.dx = int(sprite.vel_x * sprite.direction.value)
@@ -408,6 +412,10 @@ class GameEngine():
         self.player.update()
         for group in self.groups.values():
             group.update()
+            
+        for bullet in self.groups['bullet']:
+            if pygame.sprite.spritecollideany(bullet, self.groups['obstacle']):
+                bullet.kill()
 
         # Check for end-states
         self.check_for_player_death()

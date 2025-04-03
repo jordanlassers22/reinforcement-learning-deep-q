@@ -45,6 +45,8 @@ class EnvironmentSettings:
     SOLDIER_SHOOT_COOLDOWN = 30
     SOLDIER_THROW_COOLDOWN = 120
     ANIMATION_COOLDOWN = 6
+    FALL_DAMAGE_THRESHOLD = 19   # vel_y above this causes damage
+    FALL_DAMAGE_MULTIPLIER = 30    # damage = (vel_y - threshold) * multiplier
 
 # TODO: define TILE_SIZE from the image dimensions instead of hardcoded value
 @dataclass(frozen=True)
