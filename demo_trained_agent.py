@@ -20,7 +20,7 @@ state = discretize(state_raw)
 done = False
 total_reward = 0
 step_count = 0
-max_steps = 5000
+max_steps = 1000
 
 action_names = [
     "Run Left", "Run Right", "Jump", 

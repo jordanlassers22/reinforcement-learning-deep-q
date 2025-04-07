@@ -23,8 +23,8 @@ gamma = 0.95            #Discount factor: importance of future rewards
 epsilon = 1.0           #Exploration rate: probability of choosing a random action
 epsilon_decay = 0.998   #Rate at which exploration rate decreases
 epsilon_min = 0.01      #Minimum exploration rate to ensure some randomness
-episodes = 1000         #Number of episodes for training
-max_steps = 1000
+episodes = 500         #Number of episodes for training
+max_steps = 1500
 
 # Training the agent
 env = ShooterEnv(render_mode=None)

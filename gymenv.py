@@ -1,5 +1,5 @@
 # Todo
-# Reward for killing enemies
+# Reward for killing / damaging enemies
 # Penalty for falling in water
 
 
@@ -97,6 +97,7 @@ class ShooterEnv(gym.Env):
         self.step_count += 1
 
         observation, debug_info = self._get_observation()
+        self.last_action = action
         reward = self._get_reward()
         terminated = not self.game.player.alive or self.game.level_complete
         truncated = self.step_count >= 1000
@@ -180,15 +181,16 @@ class ShooterEnv(gym.Env):
 
     def _get_reward(self):
         p = self.game.player
+        action = self.last_action
         reward = 0
         
         if not p.alive: # Punishment for dying
             return -100
 
         if p.rect.centerx > self.prev_x:
-            reward += 1  # reward for moving forward 
+            reward += 5  # reward for moving forward 
         elif p.rect.centerx < self.prev_x:
-            reward -= 1  # penalize for moving backward
+            reward -= 2  # penalize for moving backward
         
         # Track if agent is stuck and not moving right or left
         if p.rect.centerx == self.prev_x:
@@ -204,6 +206,12 @@ class ShooterEnv(gym.Env):
         if self.game.level_complete:
             reward += 100
             
+        # penalty for using ammo when empty    
+        if action == 5 and p.ammo == 0:
+            reward -= 2
+        if action == 6 and p.grenades == 0:
+            reward -= 3
+    
             # Ammo reward 
         if p.ammo > self.prev_ammo:
             reward += 2
@@ -247,6 +255,7 @@ class ShooterEnv(gym.Env):
         return ctrl
     
     def _get_closest_enemy_offset(self, player):
+        """Method that returns the closest enemies distance to the player, as well as a boolean flag enemy_in_range, if the enemy is within 1500 pixels"""
         vision_distance = 1500
         min_dist = vision_distance #Minimum distance for it to care about an enemy
         dx, dy = 1500, 1500 #Returns large value if no enemies nearby

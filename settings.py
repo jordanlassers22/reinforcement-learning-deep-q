@@ -26,8 +26,8 @@ class EnvironmentSettings:
     BULLET_FULL_DAMAGE = 25
     BULLET_VELOCITY_X = 15
     GRENADE_FULL_DAMAGE = 100
-    GRENADE_INNER_RADIUS = 50  # pixels from grenade
-    GRENADE_OUTER_RADIUS = 200 # pixels from grenade
+    GRENADE_INNER_RADIUS = 100  # pixels from grenade
+    GRENADE_OUTER_RADIUS = 250 # pixels from grenade
     GRENADE_VELOCITY_X = 7
     GRENADE_VELOCITY_Y = -11
     SOLDIER_SCALE = 1.65
