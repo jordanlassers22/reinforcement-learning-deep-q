@@ -109,7 +109,7 @@ class ShooterEnv(gym.Env):
         self.last_action = action
         reward = self._get_reward()
         terminated = not self.game.player.alive or self.game.level_complete or self.stuck_counter >= 300
-        truncated = self.step_count >= 5000
+        truncated = self.step_count >= 2000
 
         return observation, reward, terminated, truncated, debug_info
 
