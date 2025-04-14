@@ -62,10 +62,11 @@ class ShooterEnv(gym.Env):
         self.observation_space = Box(low, high, dtype=np.float32)
 
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None):   
         '''
         Resets the game environment for the beginning of another episode.
         '''
+        self.last_action = None
         self.step_count = 0
         self.game.reset_world()
         self.game.load_current_level()
