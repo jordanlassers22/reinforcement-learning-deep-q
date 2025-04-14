@@ -307,6 +307,35 @@ class GameEngine():
                 or self.player.rect.top > SCREEN_HEIGHT
                 or spritecollide(self.player, self.groups['water'], False)):
             self.player.death()
+    
+    def facing_death_gap(self, player):
+        """
+        Checks if player is face a gap with water below, regardless of vertical height. Returns 1 or 0. This method was created with the assistance of AI.
+        """
+        step_pixels = 5
+        scan_range = 60
+        vertical_scan_height = SCREEN_HEIGHT  # full height of the screen
+        direction = 1 if player.direction == 1 else -1
+    
+        for offset in range(0, scan_range, step_pixels):
+            check_x = player.rect.centerx + direction * offset
+    
+            # Check if there is ANY solid ground under this x
+            solid_found = False
+            for tile in self.groups['obstacle']:
+                if tile.rect.colliderect(pygame.Rect(check_x, 0, 1, vertical_scan_height)):
+                    solid_found = True
+                    break
+    
+            # If no solid ground, check if there's water instead
+            if not solid_found:
+                for tile in self.groups['water']:
+                    if tile.rect.colliderect(pygame.Rect(check_x, 0, 1, vertical_scan_height)):
+                        return 1  # Danger!
+    
+        return 0
+
+
 
 
     def check_if_level_exit(self):

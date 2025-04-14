@@ -5,6 +5,11 @@ from dqn_model import DQN, ReplayBuffer
 from dqn_render import visualize_episode
 from gymenv import ShooterEnv
 import os
+import glob
+import re
+import warnings
+
+
 
 GAMMA = 0.99             # Discount factor highly values future reward
 EPSILON_START = 1.0      # Begin with 100% random exploration
@@ -13,7 +18,7 @@ EPSILON_MIN = 0.05       # Never fully stop exploring
 TARGET_UPDATE_FREQ = 10  # How often to reload stable_net from online_net
 TARGET_RENDER_FREQ = 10  # How often to render the agent during training
 BATCH_SIZE = 64          # Balance learning with efficiency
-MAX_EPISODES = 500    # 64k ought to be enough for anybody! :)
+MAX_EPISODES = 5000    # 64k ought to be enough for anybody! :)
 
 # Global variable holding CPU/GPU status
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -112,13 +117,35 @@ def main():
     online_net.to(device)
     stable_net.to(device)
     stable_net.load_state_dict(online_net.state_dict())
-
-    # Use ADAM gradient descent and a replay buffer to store state transitions.
     replay = ReplayBuffer()
+    
+    
 
-    # Main learning loop, going through each episode one at a time.
+    #Resume the next training episode or start at 1
+    start_episode = 1
+    model_files = glob.glob("models/dqn_shooter_*.pt")
+    if model_files:
+        latest_model = max(model_files, key=os.path.getctime)
+        print(f"Loading latest model: {latest_model}")
+        online_net.load_state_dict(torch.load(latest_model, map_location=device))
+        stable_net.load_state_dict(online_net.state_dict())
+        
+        #Hide warning messages in console
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=FutureWarning)
+            online_net.load_state_dict(torch.load(latest_model, map_location=device))
+    
+        # Extract episode number from filename
+        match = re.search(r'dqn_shooter_(\d+)\.pt', latest_model)
+        if match:
+            start_episode = int(match.group(1)) + 1
+            print(f"Resuming training at episode {start_episode}")
+    else:
+        print("No existing model found. Starting from scratch.")
+    
+    
     print("Training started...")
-    for episode in range(1, MAX_EPISODES):
+    for episode in range(start_episode, MAX_EPISODES):
         
         # Train the neural networks.
         online_net.train()
@@ -137,7 +164,8 @@ def main():
         # Report on the learning progress (and render agent every x episodes).
         if episode > 0 and episode % TARGET_RENDER_FREQ == 0:
             print(f"\n>> Visualizing agent at episode {episode} <<\n")
-            visualize_episode(online_net, device)
+            render_reward, render_max_x = visualize_episode(online_net, device)
+            print(f"Rendering reward: {reward:>10.2f} | Rendering Max X: {render_max_x}")
             torch.save(online_net.state_dict(), f'models/dqn_shooter_{episode}.pt')
         print(f"Episode {episode:>6} | "
               f"Reward: {reward:>10.2f} | "

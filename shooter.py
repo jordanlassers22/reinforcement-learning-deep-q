@@ -24,6 +24,7 @@ class InteractiveShooter():
         self.engine = GameEngine(self.screen, time_based=True)
         self.clock = pygame.time.Clock()
         self.game_mode = GameModes.MENU
+        self.previous_gap_warning = False #Flag to debug gap warning
 
 
     def handle_keyboard_events(self, event:Event) -> None:
@@ -93,6 +94,13 @@ class InteractiveShooter():
 
         # Update the position of all physics-controlled sprites
         self.engine.update(self.controller)
+        gap_detected = self.engine.facing_death_gap(self.engine.player)
+
+        if gap_detected and not self.previous_gap_warning:
+            print("Player is facing a death gap!")
+            self.previous_gap_warning = True
+        elif not gap_detected:
+            self.previous_gap_warning = False
         self.engine.draw()
 
         # Special case #1: begin a new level

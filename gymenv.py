@@ -56,9 +56,9 @@ class ShooterEnv(gym.Env):
 
         # Discrete action space: 7 possible moves
         self.action_space = Discrete(7)
-        # Observation: [dx, dy, health, exit_dx, exit_dy, ammo, grenades, in_air, enemy_in_range, enemy_dx, enemy_dy, able_to_shoot, able_to_throw_grenade]
-        low = np.array([-10000, -1000, 0, -10000, -10000, 0, 0, 0, 0, -1500, -1500, 0, 0], dtype=np.float32)
-        high = np.array([10000, 1000, 100, 10000, 10000, 50,20, 1, 1, 1500, 1500, 1, 1], dtype=np.float32)
+        # Observation: [dx, dy, health, exit_dx, exit_dy, ammo, grenades, in_air, enemy_in_range, enemy_dx, enemy_dy, able_to_shoot, able_to_throw_grenade, able_to_shoot_enemy, facing_death_gap]
+        low = np.array([-10000, -1000, 0, -10000, -10000, 0, 0, 0, 0, -1500, -1500, 0, 0, 0, 0], dtype=np.float32)
+        high = np.array([10000, 1000, 100, 10000, 10000, 50,20, 1, 1, 1500, 1500, 1, 1, 1, 1], dtype=np.float32)
         self.observation_space = Box(low, high, dtype=np.float32)
 
 
@@ -142,6 +142,9 @@ class ShooterEnv(gym.Env):
         
         # Closest enemy position to player
         enemy_dx, enemy_dy, enemy_in_range = self._get_closest_enemy_offset(p)
+        
+        # Check if able to shoot an enemy
+        able_to_shoot_enemy = self._able_to_shoot_enemy(p)
 
         # Create an observation (13 values)
         obs = [
@@ -157,7 +160,9 @@ class ShooterEnv(gym.Env):
             enemy_dx, # X-distance to closest enemy (or 9999 if none in range)
             enemy_dy, # Y-distance to closest enemy (or 9999 if none in range)
             int(p.shoot_time + p.shoot_delay < pygame.time.get_ticks()), # 1 if able to shoot, 0 if on cooldown
-            int(p.throw_time + p.throw_delay < pygame.time.get_ticks()) # 1 if able to throw, 0 if on cooldown
+            int(p.throw_time + p.throw_delay < pygame.time.get_ticks()), # 1 if able to throw, 0 if on cooldown
+            able_to_shoot_enemy, # 1 if able to shoot enemy, otherwise 0
+            int(self.game.facing_death_gap(p)) #1 if near edge of ledge with water below, 0 if not.
         ]
 
         # Create debug information
@@ -167,6 +172,8 @@ class ShooterEnv(gym.Env):
             'exit_distance': (exit_dx, exit_dy),
             'closest_enemy_distance': (enemy_dx, enemy_dy),
         }
+        
+        
 
         return np.array(obs, dtype=np.float32), debug_info
     
@@ -195,10 +202,11 @@ class ShooterEnv(gym.Env):
         if not p.alive: # Punishment for dying
             return -300
 
-        if p.rect.centerx > self.prev_x:
-            reward += 5  # reward for moving forward 
-        elif p.rect.centerx < self.prev_x:
-            reward -= 2  # penalize for moving backward
+        delta_x = p.rect.centerx - self.prev_x
+        if delta_x > 0:
+            reward += delta_x * 0.1  # Scale reward to encourage bigger movements
+        elif delta_x < 0:
+            reward += delta_x * 0.01  # Same but smaller scale for backwards movements
         
         # Track if agent is stuck and not moving right or left
         if p.rect.centerx == self.prev_x:
@@ -207,7 +215,7 @@ class ShooterEnv(gym.Env):
             self.stuck_counter = 0
         
         # Penalize if stuck too long > 10 frames
-        if self.stuck_counter >= 10:
+        if self.stuck_counter >= 200:
             reward -= 10
         
         # Bonus reward for beating level
@@ -215,27 +223,31 @@ class ShooterEnv(gym.Env):
             reward += 1000
             
         # penalty for using ammo when empty    
-        if action == 5 and p.ammo == 0:
-            reward -= 5
-        if action == 6 and p.grenades == 0:
-            reward -= 5
+        if action == 5:
+            if self._able_to_shoot_enemy(p):
+                reward += 5  # Encourage shooting when in range of enemy
+            elif p.ammo == 0:
+                reward -= 0.5  # lessor penalty
+            else:
+                reward -= 0.2  # prevent spam
         
         # Penalty for jump spamming
         if action == 2 and p.in_air:
-            reward -= 5
+            reward -= 1
 
-    
+        if self.game.facing_death_gap(p) and action == 4:  # jump + right, reward jumping over gaps
+            reward += 10  
             # Ammo reward 
         if p.ammo > self.prev_ammo:
-            reward += 10
+            reward += 5
         elif p.ammo < self.prev_ammo:
-            reward -= 4
+            reward -= 2
     
         # Grenade reward 
         if p.grenades > self.prev_grenades:
             reward += 2
         elif p.grenades < self.prev_grenades:
-            reward -= 1.5
+            reward -= 1
     
         # Health reward 
         if p.health > self.prev_health:
@@ -243,23 +255,29 @@ class ShooterEnv(gym.Env):
         elif p.health < self.prev_health:
             reward -= 10  # Took damage
             
+        if action == 5 and self._able_to_shoot_enemy(p):
+            reward += 3  #Meant to reward idea of shooting at enemy even if out of ammo    
+            
         # Reward for damaging enemies
         for enemy in self.game.groups['enemy']:
             enemy_id = id(enemy)
             prev_health = self.prev_enemy_health.get(enemy_id, enemy.health)
             damage = prev_health - enemy.health
             if damage > 0:
-                reward += damage * 0.5  
+                reward += damage * 1  
+            # Reward for killing enemy
+            if prev_health > 0 and enemy.health <= 0:
+                reward += 50
+                
             self.prev_enemy_health[enemy_id] = enemy.health
             
-        # Reward for killing enemy
-        if prev_health > 0 and enemy.health <= 0:
-            reward += 30
+        
 
         curr_x = self.game.player.rect.centerx
         if curr_x > self.furthest_x:
-            reward += (curr_x - self.furthest_x) * 0.01 #Scale reward based on distance traveled, rewarding more for further explortation
-            reward = min(reward, 10) #Cap at a reward of 10
+            distance_reward = (curr_x - self.furthest_x) * 0.01
+            distance_reward = min(distance_reward, 10)
+            reward += distance_reward
 
             self.furthest_x = curr_x
 
@@ -304,6 +322,39 @@ class ShooterEnv(gym.Env):
         enemy_in_range = int(min_dist < vision_distance) # Flag for whether there is an enemy in range
         
         return dx, dy, enemy_in_range
+    
+    def _able_to_shoot_enemy(self, player):
+        
+        if player.ammo <= 0: #Out of ammo
+            return 0
+    
+        if player.shoot_time + player.shoot_delay > pygame.time.get_ticks(): #Check if shot on cool down
+            return 0
+    
+        
+        player_rect = player.rect #Update current position
+    
+        #Loop through all enemies in the game
+        for enemy in self.game.groups['enemy']:
+            enemy_rect = enemy.rect
+    
+            #Check if enemy is near y level of player
+            same_y = abs(enemy_rect.centery - player_rect.centery) < 50
+    
+            #Check if the enemy is in front of the player
+            same_direction = (
+                (player.direction == 1 and enemy_rect.centerx > player_rect.centerx) or (player.direction == -1 and enemy_rect.centerx < player_rect.centerx))
+    
+            #Check if the enemy is within range of 800 pixels
+            in_range = abs(enemy_rect.centerx - player_rect.centerx) < 800
+    
+            if same_y and same_direction and in_range:
+                return 1
+    
+        #Otherwise there is no shootable enemy in range, return 0
+        return 0
+
+
     
     def close(self):
         pygame.quit()

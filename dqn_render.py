@@ -49,6 +49,7 @@ def visualize_episode(model:DQN=None,
     done = False
 
     # Loop until this episode is complete.
+    furthest_x = 0 #Keep track of furthest x reached.
     while not done:
 
         # Allow user to quit early.
@@ -74,12 +75,15 @@ def visualize_episode(model:DQN=None,
         total_reward += reward
         state = torch.from_numpy(next_state).unsqueeze(0).float().to(device)
         clock.tick(FPS)
+        
+        curr_x = env.game.player.rect.centerx
+        furthest_x = max(furthest_x, curr_x)
 
     # Gracefuly close PyGame environment and return.
     time.sleep(1)
     pygame.mixer.music.stop()
     pygame.display.quit()
-    return total_reward
+    return total_reward, furthest_x
 
 
 def main(model_path=None):
@@ -107,8 +111,9 @@ def main(model_path=None):
     model.to(device)
 
     # Run this episode.
-    reward = visualize_episode(model, device)
+    reward, furthest_x  = visualize_episode(model, device)
     env.close()
+    print(f"Episode finished with {reward:.2f} reward and max X: {furthest_x}")
     return reward
 
 if __name__ == '__main__':
