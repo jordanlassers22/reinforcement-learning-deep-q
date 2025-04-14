@@ -70,12 +70,19 @@ class ShooterEnv(gym.Env):
         self.step_count = 0
         self.game.reset_world()
         self.game.load_current_level()
+        
+        self.prev_enemy_health = {} #Dictionary to track enemy health
+        for enemy in self.game.groups['enemy']:
+            self.prev_enemy_health[id(enemy)] = enemy.health
+
 
         # Tracks observation and reward values across steps
         self.start_x = self.game.player.rect.centerx
         self.start_y = self.game.player.rect.centery
         self.prev_x = self.start_x  # Track previous horizontal position
         self.stuck_counter = 0 # Counter to determine amount of frames an agent is stuck for
+        self.furthest_x = self.game.player.rect.centerx # Variable to keep track of record x distance
+
 
 
         
@@ -186,7 +193,7 @@ class ShooterEnv(gym.Env):
         reward = 0
         
         if not p.alive: # Punishment for dying
-            return -100
+            return -300
 
         if p.rect.centerx > self.prev_x:
             reward += 5  # reward for moving forward 
@@ -201,23 +208,28 @@ class ShooterEnv(gym.Env):
         
         # Penalize if stuck too long > 10 frames
         if self.stuck_counter >= 10:
-            reward -= 1  
+            reward -= 10
         
         # Bonus reward for beating level
         if self.game.level_complete:
-            reward += 100
+            reward += 1000
             
         # penalty for using ammo when empty    
         if action == 5 and p.ammo == 0:
-            reward -= 2
+            reward -= 5
         if action == 6 and p.grenades == 0:
-            reward -= 3
+            reward -= 5
+        
+        # Penalty for jump spamming
+        if action == 2 and p.in_air:
+            reward -= 5
+
     
             # Ammo reward 
         if p.ammo > self.prev_ammo:
-            reward += 2
+            reward += 10
         elif p.ammo < self.prev_ammo:
-            reward -= 1
+            reward -= 4
     
         # Grenade reward 
         if p.grenades > self.prev_grenades:
@@ -227,9 +239,30 @@ class ShooterEnv(gym.Env):
     
         # Health reward 
         if p.health > self.prev_health:
-            reward += 5  # Healed
+            reward += 20  # Healed
         elif p.health < self.prev_health:
-            reward -= 2  # Took damage
+            reward -= 10  # Took damage
+            
+        # Reward for damaging enemies
+        for enemy in self.game.groups['enemy']:
+            enemy_id = id(enemy)
+            prev_health = self.prev_enemy_health.get(enemy_id, enemy.health)
+            damage = prev_health - enemy.health
+            if damage > 0:
+                reward += damage * 0.5  
+            self.prev_enemy_health[enemy_id] = enemy.health
+            
+        # Reward for killing enemy
+        if prev_health > 0 and enemy.health <= 0:
+            reward += 30
+
+        curr_x = self.game.player.rect.centerx
+        if curr_x > self.furthest_x:
+            reward += (curr_x - self.furthest_x) * 0.01 #Scale reward based on distance traveled, rewarding more for further explortation
+            reward = min(reward, 10) #Cap at a reward of 10
+
+            self.furthest_x = curr_x
+
     
         # Update trackers
         self.prev_ammo = p.ammo

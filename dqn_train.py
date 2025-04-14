@@ -89,7 +89,7 @@ def train_episode(env:ShooterEnv,
         online_net.backpropagate(qvals, targets)
 
     # Total reward helps monitor progress
-    return total_reward
+    return total_reward, env.furthest_x
 
 
 def main():
@@ -123,7 +123,7 @@ def main():
         # Train the neural networks.
         online_net.train()
         stable_net.train()
-        reward = train_episode(env_headless, 
+        reward, furthest_x_travelled = train_episode(env_headless, 
                                online_net, 
                                stable_net, 
                                epsilon, 
@@ -141,7 +141,8 @@ def main():
             torch.save(online_net.state_dict(), f'models/dqn_shooter_{episode}.pt')
         print(f"Episode {episode:>6} | "
               f"Reward: {reward:>10.2f} | "
-              f"Epsilon: {epsilon:.3f}")
+              f"Epsilon: {epsilon:.3f} | "
+              f"Max X coordinate: {furthest_x_travelled}")
 
         # Epsilon greedy decay
         epsilon = max(EPSILON_MIN, epsilon * EPSILON_DECAY)

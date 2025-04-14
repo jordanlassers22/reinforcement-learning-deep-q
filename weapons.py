@@ -18,9 +18,9 @@ class ItemBox(pygame.sprite.Sprite):
         Preload assets into shared memory to optimize performance.
         '''
         cls.images = {
-            'ammo': load(f'img/icons/ammo_box.png').convert_alpha(),
-            'health': load(f'img/icons/health_box.png').convert_alpha(),
-            'grenade': load(f'img/icons/grenade_box.png').convert_alpha(),
+            'ammo': load('img/icons/ammo_box.png').convert_alpha(),
+            'health': load('img/icons/health_box.png').convert_alpha(),
+            'grenade': load('img/icons/grenade_box.png').convert_alpha(),
         }
 
     def __init__(self, x, y, box_type='ammo', quantity=20):
