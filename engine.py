@@ -313,7 +313,7 @@ class GameEngine():
         Checks if player is face a gap with water below, regardless of vertical height. Returns 1 or 0. This method was created with the assistance of AI.
         """
         step_pixels = 5
-        scan_range = 60
+        scan_range = 30
         vertical_scan_height = SCREEN_HEIGHT  # full height of the screen
         direction = 1 if player.direction == 1 else -1
     

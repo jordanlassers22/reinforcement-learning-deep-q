@@ -1,6 +1,5 @@
 # Todo
-# Reward for killing / damaging enemies
-# Penalty for falling in water
+# Punish when jumping when not near ledge
 
 
 import numpy as np
@@ -82,6 +81,8 @@ class ShooterEnv(gym.Env):
         self.prev_x = self.start_x  # Track previous horizontal position
         self.stuck_counter = 0 # Counter to determine amount of frames an agent is stuck for
         self.furthest_x = self.game.player.rect.centerx # Variable to keep track of record x distance
+        self.reached_checkpoints = set() #Set to keep track of checkpoints that have been reached
+
 
 
 
@@ -107,8 +108,8 @@ class ShooterEnv(gym.Env):
         observation, debug_info = self._get_observation()
         self.last_action = action
         reward = self._get_reward()
-        terminated = not self.game.player.alive or self.game.level_complete
-        truncated = self.step_count >= 1000
+        terminated = not self.game.player.alive or self.game.level_complete or self.stuck_counter >= 300
+        truncated = self.step_count >= 5000
 
         return observation, reward, terminated, truncated, debug_info
 
@@ -202,20 +203,29 @@ class ShooterEnv(gym.Env):
         if not p.alive: # Punishment for dying
             return -300
 
-        delta_x = p.rect.centerx - self.prev_x
-        if delta_x > 0:
-            reward += delta_x * 0.1  # Scale reward to encourage bigger movements
-        elif delta_x < 0:
-            reward += delta_x * 0.01  # Same but smaller scale for backwards movements
+        player_x = p.rect.centerx
+
+        # Reward for distance travelled
+        if player_x > self.furthest_x:
+            distance_reward = min((player_x - self.furthest_x) * 0.01, 10)
+            reward += distance_reward
+            self.furthest_x = player_x
+        
+        # Reward for reaching checkpoint
+        checkpoint_size = 200
+        checkpoint = player_x // checkpoint_size
+        if checkpoint not in self.reached_checkpoints:
+            reward += 50
+            self.reached_checkpoints.add(checkpoint)
         
         # Track if agent is stuck and not moving right or left
-        if p.rect.centerx == self.prev_x:
+        if player_x == self.prev_x:
             self.stuck_counter += 1
         else:
             self.stuck_counter = 0
         
-        # Penalize if stuck too long > 10 frames
-        if self.stuck_counter >= 200:
+        # Penalize if stuck too long > 100 frames
+        if self.stuck_counter >= 100:
             reward -= 10
         
         # Bonus reward for beating level
@@ -270,18 +280,7 @@ class ShooterEnv(gym.Env):
                 reward += 50
                 
             self.prev_enemy_health[enemy_id] = enemy.health
-            
-        
 
-        curr_x = self.game.player.rect.centerx
-        if curr_x > self.furthest_x:
-            distance_reward = (curr_x - self.furthest_x) * 0.01
-            distance_reward = min(distance_reward, 10)
-            reward += distance_reward
-
-            self.furthest_x = curr_x
-
-    
         # Update trackers
         self.prev_ammo = p.ammo
         self.prev_grenades = p.grenades

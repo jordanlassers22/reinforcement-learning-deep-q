@@ -14,7 +14,7 @@ import warnings
 GAMMA = 0.99             # Discount factor highly values future reward
 EPSILON_START = 1.0      # Begin with 100% random exploration
 EPSILON_DECAY = 0.995    # Decay slowly
-EPSILON_MIN = 0.05       # Never fully stop exploring
+EPSILON_MIN = 0.05       #  Never fully stop exploring
 TARGET_UPDATE_FREQ = 10  # How often to reload stable_net from online_net
 TARGET_RENDER_FREQ = 10  # How often to render the agent during training
 BATCH_SIZE = 64          # Balance learning with efficiency
