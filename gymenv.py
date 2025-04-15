@@ -33,7 +33,7 @@ class ShooterEnv(gym.Env):
         'render_fps': 60
     }
 
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None, level=1):
         '''
         Initializes a new Gymnasium environment for the Shooter Game. Loads the
         game engine into the background and defines the action space and the
@@ -41,6 +41,7 @@ class ShooterEnv(gym.Env):
         '''
 
         super().__init__()
+        self.level = level
         self.render_mode = render_mode
         pygame.display.init()
         if self.render_mode == 'human':
@@ -53,7 +54,7 @@ class ShooterEnv(gym.Env):
         else:
             pygame.display.set_mode((1, 1), pygame.HIDDEN)
             self.game = GameEngine(None, False)
-
+        self.game.level = self.level
         # Discrete action space: 7 possible moves
         self.action_space = Discrete(7)
         # Observation: [dx, dy, health, exit_dx, exit_dy, ammo, grenades, in_air, enemy_in_range, enemy_dx, enemy_dy, able_to_shoot, able_to_throw_grenade, able_to_shoot_enemy, facing_death_gap]
@@ -68,6 +69,7 @@ class ShooterEnv(gym.Env):
         '''
         self.last_action = None
         self.step_count = 0
+        self.game.level = self.level
         self.game.reset_world()
         self.game.load_current_level()
         

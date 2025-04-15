@@ -104,7 +104,8 @@ def main():
     '''
     os.makedirs("models", exist_ok=True) # Make models folder
     epsilon = EPSILON_START
-    env_headless = ShooterEnv(render_mode=None)
+    training_level = 2  # <<< Change training level here
+    env_headless = ShooterEnv(render_mode=None, level=training_level)
     obs_size = env_headless.observation_space.shape[0]
     n_actions = env_headless.action_space.n
     print(f"Creating online and stable neural networks "
@@ -164,7 +165,7 @@ def main():
         # Report on the learning progress (and render agent every x episodes).
         if episode > 0 and episode % TARGET_RENDER_FREQ == 0:
             print(f"\n>> Visualizing agent at episode {episode} <<\n")
-            render_reward, render_max_x = visualize_episode(online_net, device)
+            render_reward, render_max_x = visualize_episode(online_net, device, level=training_level)
             print(f"Rendering reward: {reward:>10.2f} | Rendering Max X: {render_max_x}")
             torch.save(online_net.state_dict(), f'models/dqn_shooter_{episode}.pt')
         print(f"Episode {episode:>6} | "

@@ -10,7 +10,7 @@ from settings import FPS
 
 def visualize_episode(model:DQN=None, 
                       #env:ShooterEnv, 
-                      device:str='cpu'):
+                      device:str='cpu', level = 1):
     '''
     Renders a single episode of the custom Shooter environment using a 
     pre-trained DQN agent.
@@ -28,7 +28,7 @@ def visualize_episode(model:DQN=None,
     # the episode, close the display window. The keyboard is *not* to interact
     # with the game, but we might want to close early.
     clock = pygame.time.Clock()
-    env = ShooterEnv(render_mode="human")
+    env = ShooterEnv(render_mode="human", level=level)
     if not pygame.get_init():
         pygame.init()
         pygame.mixer.init()
@@ -86,7 +86,7 @@ def visualize_episode(model:DQN=None,
     return total_reward, furthest_x
 
 
-def main(model_path=None):
+def main(model_path: str, level: int = 1):
     '''
     Loads a pre-trained DQN agent and runs a single episode of the Shooter game
     with rendering enabled.
@@ -94,6 +94,8 @@ def main(model_path=None):
     Parameters:
     - model_path (str): Path to the saved model file (.pt) containing the 
     trained weights.
+    
+    - level (int): integer 1-6 for the level that should be played
 
     Returns:
     - float: The total accumulated reward from the episode.
@@ -111,19 +113,25 @@ def main(model_path=None):
     model.to(device)
 
     # Run this episode.
-    reward, furthest_x  = visualize_episode(model, device)
+    reward, furthest_x  = visualize_episode(model, device, level)
     env.close()
     print(f"Episode finished with {reward:.2f} reward and max X: {furthest_x}")
     return reward
 
 if __name__ == '__main__':
-
+    """If main params are path to model and level number"""
+    # python dqn_render.py "models/dqn_shooter_600.pt" 5 
     # We must read in a saved model to play the game.
     if len(sys.argv) < 2:
         print(f"Usage: python {__file__} <model_path>")
         sys.exit(1)
     model_path = sys.argv[1]
-    total_reward = main(model_path)
+    if len(sys.argv) > 2:
+        level = int(sys.argv[2]) 
+    else:
+        level = 1
+
+    total_reward = main(model_path, level)
     print(f"Episode finished with {total_reward} reward\n")
     pygame.quit()
 
