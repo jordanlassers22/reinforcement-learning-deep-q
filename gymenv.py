@@ -255,6 +255,7 @@ class ShooterEnv(gym.Env):
 
         if self.game.facing_death_gap(p) and action == 4:  # jump + right, reward jumping over gaps
             reward += 10  
+            
             # Ammo reward 
         if p.ammo > self.prev_ammo:
             reward += 5
@@ -276,18 +277,18 @@ class ShooterEnv(gym.Env):
         # if action == 5 and self._able_to_shoot_enemy(p):
         #     reward += 3  #Meant to reward idea of shooting at enemy even if out of ammo    
             
-        # # Reward for damaging enemies
-        # for enemy in self.game.groups['enemy']:
-        #     enemy_id = id(enemy)
-        #     prev_health = self.prev_enemy_health.get(enemy_id, enemy.health)
-        #     damage = prev_health - enemy.health
-        #     if damage > 0:
-        #         reward += damage * 1  
-        #     # Reward for killing enemy
-        #     if prev_health > 0 and enemy.health <= 0:
-        #         reward += 50
+        # Reward for damaging enemies
+        for enemy in self.game.groups['enemy']:
+            enemy_id = id(enemy)
+            prev_health = self.prev_enemy_health.get(enemy_id, enemy.health)
+            damage = prev_health - enemy.health
+            if damage > 0:
+                reward += damage * 1  
+            # Reward for killing enemy
+            if prev_health > 0 and enemy.health <= 0:
+                reward += 50
                 
-        #     self.prev_enemy_health[enemy_id] = enemy.health
+            self.prev_enemy_health[enemy_id] = enemy.health
             
             
         # # Penalize spamming left and right
