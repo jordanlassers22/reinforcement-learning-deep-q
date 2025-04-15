@@ -1,8 +1,3 @@
-# Todo
-# Reward for killing / damaging enemies
-# Penalty for falling in water
-
-
 import numpy as np
 import pygame
 
@@ -55,11 +50,16 @@ class ShooterEnv(gym.Env):
             pygame.display.set_mode((1, 1), pygame.HIDDEN)
             self.game = GameEngine(None, False)
         self.game.level = self.level
+        
+        # Flags to keep track of jumps
+        self.jump_start_y = None
+        self.jump_initiated = False
+        
         # Discrete action space: 7 possible moves
         self.action_space = Discrete(7)
-        # Observation: [dx, dy, health, exit_dx, exit_dy, ammo, grenades, in_air, enemy_in_range, enemy_dx, enemy_dy, able_to_shoot, able_to_throw_grenade, able_to_shoot_enemy, facing_death_gap]
-        low = np.array([-10000, -1000, 0, -10000, -10000, 0, 0, 0, 0, -1500, -1500, 0, 0, 0, 0], dtype=np.float32)
-        high = np.array([10000, 1000, 100, 10000, 10000, 50,20, 1, 1, 1500, 1500, 1, 1, 1, 1], dtype=np.float32)
+        # Observation: [dx, dy, health, exit_dx, exit_dy, ammo, grenades, in_air, enemy_in_range, enemy_dx, enemy_dy, able_to_shoot, able_to_throw_grenade, able_to_shoot_enemy, facing_death_gap, touching_wall]
+        low = np.array([-10000, -1000, 0, -10000, -10000, 0, 0, 0, 0, -1500, -1500, 0, 0, 0, 0,0], dtype=np.float32)
+        high = np.array([10000, 1000, 100, 10000, 10000, 50,20, 1, 1, 1500, 1500, 1, 1, 1, 1, 1], dtype=np.float32)
         self.observation_space = Box(low, high, dtype=np.float32)
 
 
@@ -86,7 +86,7 @@ class ShooterEnv(gym.Env):
         self.furthest_x = self.game.player.rect.centerx # Variable to keep track of record x distance
         
         self.direction_history = []  # store last 10 movement directions
-        self.max_direction_history = 10  # size of buffer
+        self.max_direction_history = 10  # queue to hold direction history
 
 
 
@@ -121,7 +121,17 @@ class ShooterEnv(gym.Env):
         else:
             self.direction_history.append(0)   # no movement
         
-        # Keep buffer size in bounds
+        # Detect when the ai jumps
+        if action in [2, 3, 4] and not self.jump_initiated and self.game.player.in_air:
+            self.jump_start_y = self.game.player.rect.centery
+            self.jump_initiated = True
+            
+        # Reset flag if on the ground
+        if not self.game.player.in_air and self.jump_initiated:
+            self.jump_initiated = False
+
+    
+        # deque if full
         if len(self.direction_history) > self.max_direction_history:
             self.direction_history.pop(0)
 
@@ -164,8 +174,11 @@ class ShooterEnv(gym.Env):
         
         # Check if able to shoot an enemy
         able_to_shoot_enemy = self._able_to_shoot_enemy(p)
+        
+        # 1 if touching wall, 0 if not
+        touching_wall = self.game.is_touching_wall(p)
 
-        # Create an observation (13 values)
+        # Create an observation (16 values)
         obs = [
             p_dx,
             p_dy,
@@ -181,7 +194,9 @@ class ShooterEnv(gym.Env):
             int(p.shoot_time + p.shoot_delay < pygame.time.get_ticks()), # 1 if able to shoot, 0 if on cooldown
             int(p.throw_time + p.throw_delay < pygame.time.get_ticks()), # 1 if able to throw, 0 if on cooldown
             able_to_shoot_enemy, # 1 if able to shoot enemy, otherwise 0
-            int(self.game.facing_death_gap(p)) #1 if near edge of ledge with water below, 0 if not.
+            int(self.game.facing_death_gap(p)), #1 if near edge of ledge with water below, 0 if not.
+            touching_wall # 1 if touching wall, 0 if not
+
         ]
 
         # Create debug information
@@ -192,12 +207,11 @@ class ShooterEnv(gym.Env):
             'closest_enemy_distance': (enemy_dx, enemy_dy),
         }
         
-        
-
         return np.array(obs, dtype=np.float32), debug_info
     
 
     def _get_exit_distance(self, player):
+        """Gets the x and y distance of the player compared to the exit in pixels. """
         min_dist = float('inf')
         closest_dx, closest_dy = 9999, 9999
 
@@ -221,6 +235,7 @@ class ShooterEnv(gym.Env):
         if not p.alive: # Punishment for dying
             return -300
 
+        # Reward positive movement
         delta_x = p.rect.centerx - self.prev_x
         if delta_x > 0:
             reward += 1.5
@@ -228,32 +243,22 @@ class ShooterEnv(gym.Env):
         elif delta_x < 0:
             reward += .05
         
+        
         # Track if agent is stuck and not moving right or left
         if p.rect.centerx == self.prev_x:
             self.stuck_counter += 1
         else:
             self.stuck_counter = 0
         
-        # # Penalize if stuck too long > 100 frames
-        # if self.stuck_counter >= 100:
-        #     reward -= 10
+        # Penalize if stuck too long > 50 frames
+        if self.stuck_counter >= 50:
+            reward -= 1
         
         # Bonus reward for beating level
         if self.game.level_complete:
             reward += 300
-            
-        # # penalty for using ammo when empty    
-        # if action == 5:
-        #     if self._able_to_shoot_enemy(p):
-        #         reward += 5  # Encourage shooting when in range of enemy
-        #     elif p.ammo == 0:
-        #         reward -= 0.5  # lessor penalty
-        #     else:
-        #         reward -= 0.2  # prevent spam
         
-        # # Penalty for jump spamming
-        # if action == 2 and p.in_air:
-        #     reward -= 1
+        
 
         if self.game.facing_death_gap(p) and action == 4:  # jump + right, reward jumping over gaps
             reward += 10  
@@ -276,8 +281,21 @@ class ShooterEnv(gym.Env):
         elif p.health < self.prev_health:
             reward -= 10  # Took damage
             
-        # if action == 5 and self._able_to_shoot_enemy(p):
-        #     reward += 3  #Meant to reward idea of shooting at enemy even if out of ammo    
+        # Penalize jump unless its over a gap or lands on a different platform
+        if action in [2, 3, 4]:  #Jump, jump left, jump right
+            player = self.game.player
+            jumped_over_gap = self.game.facing_death_gap(player)
+            landed_different_y = (
+                self.jump_start_y is not None and
+                abs(player.rect.centery - self.jump_start_y) > 10  # Makes sure the ai lands on a different y level or else the jump is considered pointless
+            )
+        
+            if not jumped_over_gap and not landed_different_y:
+                reward -= 3  # penalize wasteful jumps
+
+            
+        if action == 5 and self._able_to_shoot_enemy(p):
+            reward += 2  #Meant to reward idea of shooting at enemy even if out of ammo    
             
         # Reward for damaging enemies
         for enemy in self.game.groups['enemy']:
@@ -299,9 +317,12 @@ class ShooterEnv(gym.Env):
         #         abs(self.direction_history[i] - self.direction_history[i-1]) == 2
         #         for i in range(1, len(self.direction_history))
         #     )
-        #     if direction_changes >= 4:  # tweak this threshold
+        #     if direction_changes >= 4:
         #         reward -= 3  # apply penalty
-
+        # # Penalty for jump spamming
+        # if action == 2 and p.in_air:
+        #     reward -= 1
+        
         # Update trackers
         self.prev_ammo = p.ammo
         self.prev_grenades = p.grenades
@@ -344,6 +365,7 @@ class ShooterEnv(gym.Env):
         return dx, dy, enemy_in_range
     
     def _able_to_shoot_enemy(self, player):
+        """Method that determines whether or not the agent is in a position to shoot the enemy. Factors in ammo count, cool downs, or if the closest enemy is within 500 pixels"""
         
         if player.ammo <= 0: #Out of ammo
             return 0
@@ -362,8 +384,7 @@ class ShooterEnv(gym.Env):
             same_y = abs(enemy_rect.centery - player_rect.centery) < 50
     
             #Check if the enemy is in front of the player
-            same_direction = (
-                (player.direction == 1 and enemy_rect.centerx > player_rect.centerx) or (player.direction == -1 and enemy_rect.centerx < player_rect.centerx))
+            same_direction = ((player.direction == 1 and enemy_rect.centerx > player_rect.centerx) or (player.direction == -1 and enemy_rect.centerx < player_rect.centerx))
     
             #Check if the enemy is within range of 500 pixels
             in_range = abs(enemy_rect.centerx - player_rect.centerx) < 500

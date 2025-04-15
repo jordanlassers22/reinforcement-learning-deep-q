@@ -320,7 +320,7 @@ class GameEngine():
         for offset in range(0, scan_range, step_pixels):
             check_x = player.rect.centerx + direction * offset
     
-            # Check if there is ANY solid ground under this x
+            # Check if there is solid ground under this x
             solid_found = False
             for tile in self.groups['obstacle']:
                 if tile.rect.colliderect(pygame.Rect(check_x, 0, 1, vertical_scan_height)):
@@ -334,9 +334,22 @@ class GameEngine():
                         return 1  # Danger!
     
         return 0
-
-
-
+    
+    def is_touching_wall(self, player):
+        """Method to check if player is touching a wall. Returns 1 or 0. This method was created with the assistance of AI."""
+        # Define narrow strips on the left and right of the player to detect side collisions only
+        left_check_rect = pygame.Rect(player.rect.left - 1, player.rect.top + 5, 2, player.rect.height - 10)
+        right_check_rect = pygame.Rect(player.rect.right - 1, player.rect.top + 5, 2, player.rect.height - 10)
+    
+        for tile in self.groups.get('obstacle', []):
+            if tile.rect.colliderect(left_check_rect):
+               # print("[DEBUG] Touching LEFT wall")
+                return 1
+            if tile.rect.colliderect(right_check_rect):
+               # print("[DEBUG] Touching RIGHT wall")
+                return 1
+    
+        return 0
 
     def check_if_level_exit(self):
         '''

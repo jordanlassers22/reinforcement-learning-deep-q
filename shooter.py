@@ -25,6 +25,8 @@ class InteractiveShooter():
         self.clock = pygame.time.Clock()
         self.game_mode = GameModes.MENU
         self.previous_gap_warning = False #Flag to debug gap warning
+        self.previous_wall_warning = False  #Flag to debug wall contact
+
 
 
     def handle_keyboard_events(self, event:Event) -> None:
@@ -94,13 +96,22 @@ class InteractiveShooter():
 
         # Update the position of all physics-controlled sprites
         self.engine.update(self.controller)
+        # Added flags to test my new methods with print statements when manually playing the game
         gap_detected = self.engine.facing_death_gap(self.engine.player)
-
+        touching_wall = self.engine.is_touching_wall(self.engine.player)
+       
         if gap_detected and not self.previous_gap_warning:
             print("Player is facing a death gap!")
             self.previous_gap_warning = True
         elif not gap_detected:
             self.previous_gap_warning = False
+            
+        if touching_wall and not self.previous_wall_warning:
+            print("Player is touching a wall!")
+            self.previous_wall_warning = True
+        elif not touching_wall:
+            self.previous_wall_warning = False
+
         self.engine.draw()
 
         # Special case #1: begin a new level
