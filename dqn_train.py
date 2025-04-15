@@ -12,7 +12,7 @@ import warnings
 
 
 GAMMA = 0.99             # Discount factor highly values future reward
-EPSILON_START = 1.0     # Begin with 100% random exploration 1.0
+EPSILON_START = 0.8     # Begin with 100% random exploration 1.0
 EPSILON_DECAY = 0.995    # Decay slowly
 EPSILON_MIN = 0.05       #  Never fully stop exploring
 TARGET_UPDATE_FREQ = 10  # How often to reload stable_net from online_net

@@ -256,7 +256,7 @@ class ShooterEnv(gym.Env):
         
         # Bonus reward for beating level
         if self.game.level_complete:
-            reward += 300
+            reward += 500
         
         
 
@@ -306,22 +306,22 @@ class ShooterEnv(gym.Env):
                 reward += damage * 1  
             # Reward for killing enemy
             if prev_health > 0 and enemy.health <= 0:
-                reward += 50
+                reward += 100
                 
             self.prev_enemy_health[enemy_id] = enemy.health
             
             
-        # # Penalize spamming left and right
-        # if len(self.direction_history) == self.max_direction_history:
-        #     direction_changes = sum(
-        #         abs(self.direction_history[i] - self.direction_history[i-1]) == 2
-        #         for i in range(1, len(self.direction_history))
-        #     )
-        #     if direction_changes >= 4:
-        #         reward -= 3  # apply penalty
-        # # Penalty for jump spamming
-        # if action == 2 and p.in_air:
-        #     reward -= 1
+        # Penalize spamming left and right
+        if len(self.direction_history) == self.max_direction_history:
+            direction_changes = sum(
+                abs(self.direction_history[i] - self.direction_history[i-1]) == 2
+                for i in range(1, len(self.direction_history))
+            )
+            if direction_changes >= 4:
+                reward -= 3  # apply penalty
+        # Penalty for jump spamming
+        if action == 2 and p.in_air:
+            reward -= 1
         
         # Update trackers
         self.prev_ammo = p.ammo
